@@ -211,17 +211,41 @@ m_gen2.plot_final_result()
 
 #%% [Real Measurements] 
 
-NK = 3 # these are ignored in gen_real_beam_meas()
-B = [0] #[0, 10, 19]
-T = [1]# i for i in range(5)]
+NK = 4 # these are ignored in gen_real_beam_meas()
+B = [0,6,12,19] #[0, 10, 19]
+T = [i for i in range(12)]
 
-m3 = RSSI_Measurement_Generator(db=rssi_db, std_def=.2)
+m3 = RSSI_Measurement_Generator(db=rssi_db, std_def=2)
 meas3 = m3.gen_real_beam_meas(NK, B, T, pos=[22,-25,0])
 prob_grid3 = m3.comp_loc_prob(plot=True)
 pos_estimate = m3.estimate_loc(plot=True)
 pos_error = m3.comp_pos_error(verbose=True)
 
 m3.plot_final_result()
+
+#%% Single parameter combination with multiple repetitions
+N_rep = 1000
+params = {'NK': 4,
+          'B': [0,6,13,19], #[0], [0,19], [0,10,19], [0,6,13,19]
+          'T': [i for i in range(12)], # 1,4,8,12
+            # 'pos': [0,0,1.5], #[0,0,1.5] [23,-25,1.5]
+            'pos': [23,-25,1.5],
+          }
+
+pos_errors = np.zeros(N_rep)
+for rep_idx in tqdm(range(N_rep), desc='Repeating experiment'):
+    pos_errors[rep_idx] = gu.make_experiment(params, rssi_db, std_def=2)
+
+avg_pos_err = np.mean(pos_errors)
+avg_pos_std = np.std(pos_errors)
+
+print(f'avg_pos_err = {avg_pos_err:.3f}; avg_pos_std = {avg_pos_std:.3f}')
+
+sorted_errors = np.sort(pos_errors)
+for val in [0.8, 0.9, 0.99]:
+    cum_val = sorted_errors[int(len(sorted_errors) * val)]
+    print(f'Cumulative value for confidence {val*100:.0f}% = {cum_val:.2f}')
+    
 
 #%% Test NK, NB, and NT
 
@@ -418,7 +442,8 @@ df.to_csv(csv_path, index=False)
 
 #%% Plot Multi-parameter combos
 
-csv_path = '/home/joao/Documents/GitHub/SionnaProjects/Loc-DT-paper-repo/csvs/res_N_rep=500_pos=[0, 0, 1.5].csv'
+csv_path = '/home/joao/Documents/GitHub/LocalizationDigitalTwins/csvs/res_N_rep=500_pos=[0, 0, 1.5].csv'
+# csv_path = '/home/joao/Documents/GitHub/LocalizationDigitalTwins/csvs/res_N_rep=500_pos=[23, -25, 1.5].csv'
 df = pd.read_csv(csv_path)
 
 plt.figure(dpi=200, figsize=[6, 4])
