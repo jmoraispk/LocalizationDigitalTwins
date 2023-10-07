@@ -27,7 +27,7 @@ import DeepMIMO
 
 p = { # Parameters for scene generation (ray tracing simulation)
      'freq': 3e9,
-     'tx_pos': [-33,11,32],
+     'tx_pos': [-33,11,32], # just informational, the position comes from the deepmimo scenario
      'tx_ori': [0,0,-18.43],
      
       # Parameters for database generation (from the ray tracing simulation)
@@ -145,8 +145,8 @@ for beam_idx in range(rssi_db.n_beams):
         subband_freq = rssi_db.get_freq_of_subband(subband_idx) / 1e9 # [GHz]
         title = f'Beam = {beam_idx} ({beam_dir:.1f}º) | Subband = {subband_idx} ({subband_freq:.3f} GHz)'
         rssi_db.plot_coverage_map(title=title, beam_idx=beam_idx, subband_idx=subband_idx)
-        break
-    # break
+        # break
+    break
 
 #%% Plot Best beam in complete database
 
@@ -201,7 +201,7 @@ K = [12]
 B = [0] #[0, 10, 19]
 T = [i for i in range(5)]
 
-m_gen2 = RSSI_Measurement_Generator(db=rssi_db, std_def=.2)
+m_gen2 = RSSI_Measurement_Generator(db=rssi_db, std_def=1)
 
 m_gen2.gen_measurement(K, B, T, pos=[0,0,0])
 prob_grid = m_gen2.comp_loc_prob(plot=True)
@@ -211,12 +211,12 @@ m_gen2.plot_final_result()
 
 #%% [Real Measurements] 
 
-NK = 4 # these are ignored in gen_real_beam_meas()
-B = [0,6,12,19] #[0, 10, 19]
-T = [i for i in range(12)]
+NK = 3 # these are ignored in gen_real_beam_meas()
+B = [0] #[0, 10, 19]
+T = [0]# for i in range(12)]
 
 m3 = RSSI_Measurement_Generator(db=rssi_db, std_def=2)
-meas3 = m3.gen_real_beam_meas(NK, B, T, pos=[22,-25,0])
+meas3 = m3.gen_real_beam_meas(NK, B, T, pos=[0,0,1.5])
 prob_grid3 = m3.comp_loc_prob(plot=True)
 pos_estimate = m3.estimate_loc(plot=True)
 pos_error = m3.comp_pos_error(verbose=True)
@@ -225,11 +225,11 @@ m3.plot_final_result()
 
 #%% Single parameter combination with multiple repetitions
 N_rep = 1000
-params = {'NK': 4,
-          'B': [0,6,13,19], #[0], [0,19], [0,10,19], [0,6,13,19]
-          'T': [i for i in range(12)], # 1,4,8,12
-            # 'pos': [0,0,1.5], #[0,0,1.5] [23,-25,1.5]
-            'pos': [23,-25,1.5],
+params = {'NK': 2,
+          'B': [0,19], #[0], [0,19], [0,10,19], [0,6,13,19]
+          'T': [i for i in range(4)], # 1,4,8,12
+            'pos': [0,0,1.5], #[0,0,1.5] [23,-25,1.5]
+            # 'pos': [23,-25,1.5],
           }
 
 pos_errors = np.zeros(N_rep)
@@ -250,28 +250,28 @@ for val in [0.8, 0.9, 0.99]:
 #%% Test NK, NB, and NT
 
 N_rep = 100 # repetitions of each meas
-p_idx = rssi_db.get_closest_pos_idx([0,0,0])
-# p_idx = rssi_db.get_closest_pos_idx([23,-25,0])
+p_idx = rssi_db.get_closest_pos_idx([0,0,1.5])
+# p_idx = rssi_db.get_closest_pos_idx([23,-25,1.5])
 
-# N = 25
-# # Beam Variation
-# params_combo = [
-#     {'NK': nk,
-#       'B': [0],
-#       'T': [i+1 for i in range(10)],
-#       'pos': rssi_db.rx_pos[p_idx],
-    
-#     } for nk in range(1,N+1)]
-
-N = 100
-# # NT variation
+N = 25
+# Beam Variation
 params_combo = [
-    {'NK': 1,
+    {'NK': nk,
       'B': [0],
-      'T': [i+1 for i in range(nt)],
+      'T': [i+1 for i in range(10)],
       'pos': rssi_db.rx_pos[p_idx],
     
-    } for nt in range(1,N+1)]
+    } for nk in range(1,N+1)]
+
+# N = 100
+# # # NT variation
+# params_combo = [
+#     {'NK': 1,
+#       'B': [0],
+#       'T': [i+1 for i in range(nt)],
+#       'pos': rssi_db.rx_pos[p_idx],
+    
+#     } for nt in range(1,N+1)]
 
 
 n_param_combos = len(params_combo)
@@ -304,12 +304,12 @@ plt.figure(dpi=200)
 plt.plot(x, y)
 plt.fill_between(x, y - y_err, y + y_err, alpha=0.2)
 plt.ylabel('Position Error [m]')
-plt.xlabel('Number of Samples in Time')
-# plt.xlabel('Number of Beams Reported')
-plt.title(f"Position Error vs Time Samples (NT) \n"
-            f"DB resolution = {p['cell_size']} m | N_rep = {N_rep}")
-# plt.title(f"Position Error vs Number of Beams (NK) \n"
-#           f"DB resolution = {p['cell_size']} m | N_rep = {N_rep} | NT = {params_combo[-1]['T'][-1]}")
+# plt.xlabel('Number of Samples in Time')
+plt.xlabel('Number of Beams Reported')
+# plt.title(f"Position Error vs Time Samples (NT) \n"
+#             f"DB resolution = {p['cell_size']} m | N_rep = {N_rep}")
+plt.title(f"Position Error vs Number of Beams (NK) \n"
+          f"DB resolution = {p['cell_size']} m | N_rep = {N_rep} | NT = {params_combo[-1]['T'][-1]}")
 plt.grid()
 
 #%% Minimum theoretical error
@@ -379,9 +379,9 @@ print(f'Correlation coeff = {np.corrcoef(x,y)[0,1]:.2f}')
 
 #%% Make Multi-parameter combination experiment
 
-N_rep = 50 # repetitions of each meas
+N_rep = 100 # repetitions of each meas
 near_pos = [0,0,1.5]
-near_pos = [23,-25,1.5]
+# near_pos = [23,-25,1.5]
 
 np.random.seed(1)
 
@@ -442,8 +442,8 @@ df.to_csv(csv_path, index=False)
 
 #%% Plot Multi-parameter combos
 
-csv_path = '/home/joao/Documents/GitHub/LocalizationDigitalTwins/csvs/res_N_rep=500_pos=[0, 0, 1.5].csv'
-# csv_path = '/home/joao/Documents/GitHub/LocalizationDigitalTwins/csvs/res_N_rep=500_pos=[23, -25, 1.5].csv'
+# csv_path = 'csvs/res_N_rep=500_pos=[0, 0, 1.5].csv'
+csv_path = 'csvs/res_N_rep=500_pos=[23, -25, 1.5].csv'
 df = pd.read_csv(csv_path)
 
 plt.figure(dpi=200, figsize=[6, 4])
