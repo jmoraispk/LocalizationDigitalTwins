@@ -47,7 +47,7 @@ def make_experiment(params_combo, db, std_def=2):
     T = params_combo['T']
     pos = params_combo['pos']
     
-    m = RSSI_Measurement_Generator(db, std_def=2)
+    m = RSSI_Measurement_Generator(db, std_def=std_def)
     m.gen_real_beam_meas(NK, B, T, pos, verbose=False)
     m.comp_loc_prob(plot=False, verbose=False)
     m.estimate_loc(plot=False)
