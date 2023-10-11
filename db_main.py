@@ -45,7 +45,7 @@ p = { # Parameters for scene generation (ray tracing simulation)
      'db_n_decimals': 1,    # Number of decimal places for the DB (values in dBm)
      
      'grid_dims': [180, 120, 0],  # 3D user grid
-     'cell_size': 1, # [m]
+     'cell_size': 2, # [m]
      
      # Specific: DeepMIMO
      'scenario': 'simple_street_canyon_test_rays=0p25_res=2m_3ghz',
@@ -66,9 +66,9 @@ parameters['bs_antenna']['rotation'] =  np.array(p['tx_ori'])
 parameters['ue_antenna']['shape'] = np.array([1, 1, 1])
 parameters['enable_BS2BS'] = False
 parameters['activate_OFDM'] = 1
-parameters['OFDM']['subcarriers'] = 200
-parameters['OFDM']['subcarriers_limit'] = 200
-parameters['bandwidth'] = .02  # [GHz]
+parameters['OFDM']['subcarriers'] = int(p['bandwidth']/1e5) # rule of thumb: 1 subcarrier/100 khz
+parameters['OFDM']['subcarriers_limit'] = parameters['OFDM']['subcarriers']
+parameters['bandwidth'] = p['bandwidth']/1e9 # [GHz]
 
 parameters['row_subsampling'] = 1.0
 parameters['user_subsampling'] = 1.0
@@ -132,10 +132,10 @@ rssi_db = RSSI_Database(dbm=full_dbm,
 
 #%% Load Database
 
-rssi_db = RSSI_Database(n_beams=p['n_beams'], n_subbands=p['n_subbands'],
-                        bandwidth=p['bandwidth'], n_ant=p['Nt_h'],
-                        save_folder=p['db_save_folder'])
-rssi_db.load()
+# rssi_db = RSSI_Database(n_beams=p['n_beams'], n_subbands=p['n_subbands'],
+#                         bandwidth=p['bandwidth'], n_ant=p['Nt_h'],
+#                         save_folder=p['db_save_folder'])
+# rssi_db.load()
 
 #%% Plot Coverage maps for the whole database
 
@@ -145,8 +145,8 @@ for beam_idx in range(rssi_db.n_beams):
         subband_freq = rssi_db.get_freq_of_subband(subband_idx) / 1e9 # [GHz]
         title = f'Beam = {beam_idx} ({beam_dir:.1f}º) | Subband = {subband_idx} ({subband_freq:.3f} GHz)'
         rssi_db.plot_coverage_map(title=title, beam_idx=beam_idx, subband_idx=subband_idx)
-        # break
-    break
+        break
+    # break
 
 #%% Plot Best beam in complete database
 
@@ -191,7 +191,7 @@ ax[1].set_xlabel('RSSI value [dBm]')
 ax[1].set_ylabel('Count')
 ax[1].legend(loc='upper right')
 
-#%% Plot best beam for each position
+#%% Plot best beam for each position in each subband
 
 rssi_db.plot_best_beam(subband_idx='all')
 
@@ -225,11 +225,12 @@ m3.plot_final_result()
 
 #%% Single parameter combination with multiple repetitions
 N_rep = 1000
-params = {'NK': 2,
-          'B': [0,19], #[0], [0,19], [0,10,19], [0,6,13,19]
-          'T': [i for i in range(4)], # 1,4,8,12
-            'pos': [0,0,1.5], #[0,0,1.5] [23,-25,1.5]
-            # 'pos': [23,-25,1.5],
+params = {'NK': 4,
+          'B': [0], # [0], [0,19], [0,10,19], [0,6,13,19], 
+                                 # [0,4,8,12,16,19], [0,3,6,9,12,15,17,19]
+          'T': [i for i in range(10)], # 1,4,8,12
+            # 'pos': [0,0,1.5], 
+            'pos': [22,-26,1.5],
           }
 
 pos_errors = np.zeros(N_rep)
@@ -242,7 +243,7 @@ avg_pos_std = np.std(pos_errors)
 print(f'avg_pos_err = {avg_pos_err:.3f}; avg_pos_std = {avg_pos_std:.3f}')
 
 sorted_errors = np.sort(pos_errors)
-for val in [0.8, 0.9, 0.99]:
+for val in [0.99, 0.9, 0.8]:
     cum_val = sorted_errors[int(len(sorted_errors) * val)]
     print(f'Cumulative value for confidence {val*100:.0f}% = {cum_val:.2f}')
     
@@ -251,27 +252,32 @@ for val in [0.8, 0.9, 0.99]:
 
 N_rep = 100 # repetitions of each meas
 p_idx = rssi_db.get_closest_pos_idx([0,0,1.5])
-# p_idx = rssi_db.get_closest_pos_idx([23,-25,1.5])
+# p_idx = rssi_db.get_closest_pos_idx([22,-26,1.5])
 
-N = 25
-# Beam Variation
-params_combo = [
-    {'NK': nk,
-      'B': [0],
-      'T': [i+1 for i in range(10)],
-      'pos': rssi_db.rx_pos[p_idx],
-    
-    } for nk in range(1,N+1)]
-
-# N = 100
-# # # NT variation
+# N = 25
+# # Beam Variation
 # params_combo = [
-#     {'NK': 1,
+#     {'NK': nk,
 #       'B': [0],
-#       'T': [i+1 for i in range(nt)],
+#       'T': [i+1 for i in range(10)],
 #       'pos': rssi_db.rx_pos[p_idx],
     
-#     } for nt in range(1,N+1)]
+#     } for nk in range(1,N+1)]
+
+# TODO:
+    # (future) averaging of cell positions to get any position that is not in the DB
+    # number of cells to consider for clustering = accumulated probability = 80%
+    
+
+N = 100
+# # NT variation
+params_combo = [
+    {'NK': 2,
+      'B': [0],
+      'T': [i+1 for i in range(nt)],
+      'pos': rssi_db.rx_pos[p_idx],
+    
+    } for nt in range(1,N+1)]
 
 
 n_param_combos = len(params_combo)
@@ -304,12 +310,12 @@ plt.figure(dpi=200)
 plt.plot(x, y)
 plt.fill_between(x, y - y_err, y + y_err, alpha=0.2)
 plt.ylabel('Position Error [m]')
-# plt.xlabel('Number of Samples in Time')
-plt.xlabel('Number of Beams Reported')
-# plt.title(f"Position Error vs Time Samples (NT) \n"
-#             f"DB resolution = {p['cell_size']} m | N_rep = {N_rep}")
-plt.title(f"Position Error vs Number of Beams (NK) \n"
-          f"DB resolution = {p['cell_size']} m | N_rep = {N_rep} | NT = {params_combo[-1]['T'][-1]}")
+plt.xlabel('Number of Samples in Time')
+# plt.xlabel('Number of Beams Reported')
+plt.title(f"Position Error vs Time Samples (NT) \n"
+            f"DB resolution = {p['cell_size']} m | N_rep = {N_rep}")
+# plt.title(f"Position Error vs Number of Beams (NK) \n"
+#           f"DB resolution = {p['cell_size']} m | N_rep = {N_rep} | NT = {params_combo[-1]['T'][-1]}")
 plt.grid()
 
 #%% Minimum theoretical error
@@ -322,14 +328,14 @@ print(f'min_theoretic_err = {min_theoretic_err:.3f}')
 
 #%% Position accuracy for all positions in 2D grid
 
-N_rep = 10 # repetitions of each meas
+N_rep = 1000 # repetitions of each meas
 params_combo = [
     {'NK': 1,
      'B': [0],
      'T': [1], #i+1 for i in range(5)],
-     'pos': rssi_db.rx_pos[p_idx],
+     'pos': pos,
     
-    } for p_idx in range(rssi_db.rx_pos.shape[0])]
+    } for pos in rssi_db.rx_pos]
 
 n_param_combos = len(params_combo)
 
@@ -379,16 +385,14 @@ print(f'Correlation coeff = {np.corrcoef(x,y)[0,1]:.2f}')
 
 #%% Make Multi-parameter combination experiment
 
-N_rep = 100 # repetitions of each meas
-near_pos = [0,0,1.5]
-# near_pos = [23,-25,1.5]
-
+N_rep = 500 # repetitions of each meas
+los = 1
 np.random.seed(1)
 
-params_base = {'NK': 1,
+params_base = {'NK': 1 if los else 2,
                'B': [0],
                'T': [1],
-               'pos': near_pos,
+               'pos': [0,0,1.5] if los else [22,-26,1.5],
                }
 
 csvs_folder = 'csvs'
@@ -396,10 +400,14 @@ os.makedirs(csvs_folder, exist_ok=True)
 csv_path = f"{csvs_folder}/res_N_rep={N_rep}_pos={params_base['pos']}_t={time.time():.0f}.csv" 
 
 N_VARS = 6 # number of values of each parameter to test below (easier to hardcode)
-# NT variation
-params_variations = {'NK': [i for i in [2,3,4,5,8,12]],
-                     'B':  [[i  for i in range(nb)] for nb in [2,4,8,12,16,20]],
-                     'T':  [[i  for i in range(nt)] for nt in [4,8,12,16,20,24]],
+params_variations = {'NK': [i for i in [(2 if los else 3),4,6,8,10,12]],
+                     
+                     'B': ([[0,19], [0,6,12,19], [0,4,8,12,16,19], 
+                            [0,3,6,9,12,15,17,19], [0,2,4,6,8,10,12,14,16,19],
+                            [0,2,3,4,6,8,9,10,12,14,16,19]] if los else
+                           [[i for i in range(nb)] for nb in [2,4,6,8,10,12]]),
+                        
+                     'T':  [[i  for i in range(nt)] for nt in [2,4,8,16,32,48]],
                      }
 
 params_combos = gu.build_params_combinations(params_base, params_variations, n_vars=N_VARS)
@@ -411,7 +419,8 @@ pos_errors = np.zeros(base_results_shape)
 t = time.time()
 for rep_idx in tqdm(range(N_rep), desc='Repeating experiment'):
     for combo_idx in range(n_param_combos):
-        pos_errors[rep_idx, combo_idx] = gu.make_experiment(params_combos[combo_idx], rssi_db)
+        pos_errors[rep_idx, combo_idx] = gu.make_experiment(params_combos[combo_idx], rssi_db,
+                                                            std_def=2)
 
 print(f'\nTotal time consumed = {time.time() - t:.2f}s')
 
@@ -431,7 +440,7 @@ df['std'] = np.std(pos_errors, axis=0)
 z_score_dict = {0.70: 1.040, 0.75: 1.15, 0.80: 1.28, 0.85: 1.44, 
                 0.90: 1.645, 0.95: 1.96, 0.98: 2.33, 0.99: 2.58}
 for val in [0.8, 0.9, 0.95, 0.99]:
-    df[f'conf{int(val*100)}'] = z_score_dict[val] * df['avg']  / np.sqrt(N_rep)
+    df[f'conf{int(val*100)}'] = z_score_dict[val] * df['std']  / np.sqrt(N_rep)
 
 # Cumulative distribution
 sorted_errors = np.sort(pos_errors, axis=0)
@@ -442,8 +451,8 @@ df.to_csv(csv_path, index=False)
 
 #%% Plot Multi-parameter combos
 
-# csv_path = 'csvs/res_N_rep=500_pos=[0, 0, 1.5].csv'
-csv_path = 'csvs/res_N_rep=500_pos=[23, -25, 1.5].csv'
+csv_path = 'csvs/res_N_rep=300_pos=[0, 0, 1.5].csv'
+# csv_path = 'csvs/res_N_rep=300_pos=[22, -26, 1.5].csv'
 df = pd.read_csv(csv_path)
 
 plt.figure(dpi=200, figsize=[6, 4])
@@ -460,12 +469,12 @@ def_plot_params = {'markerfacecolor': 'w'}
 
 # text parameters
 x_off = 0.05
-y_off = 0.1 if near_pos[0] == 0 else 0.5
+y_off = 0.1 if los else 0.5
 txt_labels = {'B':'B', 'T':'T', 'NK': 'K'}
-txt_flip_y = {'B': [0,0,0,0,0,0],
-              'T': [0,0,0,0,0,0],
-              'NK': [1,1,0,0,0,0],
-              'all': [0,0,0,0,0,0,0] if near_pos[0] == 0 else [0,1,0,0,0,0,0]}
+txt_flip_y = {'B': [0,0,0,0,0,0] if los else [0,0,0,0,0,0,0],
+              'T': [0,1,0,0,0,0] if los else [0,0,0,0,0,0,0],
+              'NK': [0,0,0,0,0,0] if los else [0,1,0,0,0,0,0],
+              'all': [0,0,0,0,0,0,0] if los else [0,1,0,0,0,0,0]}
 skip_joint_text = False
 
 for var_name in var_names:
@@ -490,7 +499,7 @@ for var_name in var_names:
             plt.text(i+1+x_off, y, text, fontsize=8, verticalalignment=va)
     
     if var_name == var_names[-1] and not skip_joint_text:
-        for i in range(7 if near_pos[0] == 0 else 5):
+        for i in range(7 if los else 5):
             txt_ele = []
             for var_n in var_names[:-1]:
                 val = params_base[var_n] if i == 0 else params_variations[var_n][i-1]
@@ -511,11 +520,69 @@ for var_name in var_names:
     plt.xlim([-0.3, N_VARS + 0.56])
     plt.ylim([-0., df['avg'][0]*1.05 if skip_joint_text else df['avg'][0]*1.12])
     
-plt.ylabel('Position error for user in LoS (m)'
-           if near_pos[0] == 0 else 'Position error for user in NLoS (m)')
-plt.xlabel('Reporting parameters combinations')
+plt.ylabel(f"Position error for user in {'' if los else 'N'}LoS (m)")
+plt.xlabel('Overhead level')
 plt.legend(loc='upper right', ncols=10, columnspacing=0.8)
 plt.grid()
 
 
+#%% 3D plots
+
+
+N_rep = 500 # repetitions of each meas
+los = 1
+np.random.seed(1)
+
+params_base = {'NK': 1 if los else 2,
+               'B': [0],
+               'T': [1],
+               'pos': [0,0,1.5] if los else [22,-26,1.5],
+               }
+
+csvs_folder = 'csvs'
+os.makedirs(csvs_folder, exist_ok=True)
+csv_path = f"{csvs_folder}/res_N_rep={N_rep}_pos={params_base['pos']}_t={time.time():.0f}.csv" 
+
+N_VARS = 6 # number of values of each parameter to test below (easier to hardcode)
+params_variations = {'NK': [i for i in [(2 if los else 3),4,6,8,10,12]],
+                     
+                     'B': ([[0,19], [0,6,12,19], [0,4,8,12,16,19], 
+                            [0,3,6,9,12,15,17,19], [0,2,4,6,8,10,12,14,16,19],
+                            [0,2,3,4,6,8,9,10,12,14,16,19]] if los else
+                           [[i for i in range(nb)] for nb in [2,4,6,8,10,12]]),
+                        
+                     'T':  [[i  for i in range(nt)] for nt in [2,4,8,16,32,48]],
+                     }
+
+params_combos = gu.build_params_combinations(params_base, params_variations, n_vars=N_VARS)
+n_param_combos = len(params_combos)
+
+base_results_shape = [N_rep, n_param_combos]
+pos_errors = np.zeros(base_results_shape)
+
+t = time.time()
+for rep_idx in tqdm(range(N_rep), desc='Repeating experiment'):
+    for combo_idx in range(n_param_combos):
+        pos_errors[rep_idx, combo_idx] = gu.make_experiment(params_combos[combo_idx], rssi_db,
+                                                            std_def=2)
+
+print(f'\nTotal time consumed = {time.time() - t:.2f}s')
+
+# Write results to CSV
+df = pd.DataFrame()
+
+df['combo_idx'] = np.arange(n_param_combos)
+
+var_change_list = [[key]*len(params_variations[key]) for key in params_variations.keys()]
+var_change_list_flat = [''] + [item for sublist in var_change_list for item in sublist] + ['all'] * N_VARS
+df['variable'] = var_change_list_flat
+
+df['avg'] = np.mean(pos_errors, axis=0)
+df['std'] = np.std(pos_errors, axis=0)
+
+# Confidence intervals
+z_score_dict = {0.70: 1.040, 0.75: 1.15, 0.80: 1.28, 0.85: 1.44, 
+                0.90: 1.645, 0.95: 1.96, 0.98: 2.33, 0.99: 2.58}
+for val in [0.8, 0.9, 0.95, 0.99]:
+    df[f'conf{int(val*100)}'] = z_score_dict[val] * df['std']  / np.sqrt(N_rep)
 
