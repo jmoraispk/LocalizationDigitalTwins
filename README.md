@@ -4,3 +4,5 @@
 ## Temporary reproducibility video
 
 [Video](https://youtu.be/abHSQB5BlX4)
+
+![img](/video_cover.png)
