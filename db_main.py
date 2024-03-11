@@ -26,13 +26,15 @@ from RSSI_db import RSSI_Database, RSSI_Measurement_Generator
 import DeepMIMO
 
 p = { # Parameters for scene generation (ray tracing simulation)
-     'freq': 3e9,
-     'tx_pos': [-33,11,32], # just informational, the position comes from the deepmimo scenario
-     'tx_ori': [0,0,-18.43],
+     'freq': 3.5e9,
+      # 'tx_pos': [-33,11,32], # just informational, the position comes from the deepmimo scenario
+      # 'tx_ori': [0,0,-18.43],
+      'tx_pos': np.array([-42, 27, 32]), # just informational, the position comes from the deepmimo scenario
+      'tx_ori': [0,0,-45],
      
       # Parameters for database generation (from the ray tracing simulation)
-     'bandwidth': 20e6,     # [Hz]
-     'subband_size': 1e6,   # [Hz]
+     'bandwidth': 100e6,     # [Hz]
+     'subband_size': 5e6,   # [Hz]
      'n_subbands': 20,      # = int(bandwith / subband_size)
      
      'fov': 120,            # [º] 
@@ -48,7 +50,8 @@ p = { # Parameters for scene generation (ray tracing simulation)
      'cell_size': 2, # [m]
      
      # Specific: DeepMIMO
-     'scenario': 'simple_street_canyon_test_rays=0p25_res=2m_3ghz',
+     # 'scenario': 'simple_street_canyon_test_rays=0p25_res=2m_3ghz',
+      'scenario': 'new_scen',
      'scenarios_folder': 'deepmimo_scenarios', #'/media/joao/2ndStorage/DeepMIMO/Data',
      'db_save_folder': 'databases',
      
@@ -58,9 +61,7 @@ p = { # Parameters for scene generation (ray tracing simulation)
 parameters = DeepMIMO.default_params()
 
 parameters['scenario'] = p['scenario']
-parameters['active_BS'] = np.array([1])
-parameters['user_row_first'] = 1
-parameters['user_row_last'] = 61
+parameters['user_row_last'] = 141 # 61
 parameters['bs_antenna']['shape'] = np.array([1, p['Nt_h'], 1])
 parameters['bs_antenna']['rotation'] =  np.array(p['tx_ori'])
 parameters['ue_antenna']['shape'] = np.array([1, 1, 1])
@@ -69,9 +70,6 @@ parameters['activate_OFDM'] = 1
 parameters['OFDM']['subcarriers'] = int(p['bandwidth']/1e5) # rule of thumb: 1 subcarrier/100 khz
 parameters['OFDM']['subcarriers_limit'] = parameters['OFDM']['subcarriers']
 parameters['bandwidth'] = p['bandwidth']/1e9 # [GHz]
-
-parameters['row_subsampling'] = 1.0
-parameters['user_subsampling'] = 1.0
 
 # Set the main folder containing extracted scenarios
 parameters['dataset_folder'] = p['scenarios_folder']
@@ -85,9 +83,48 @@ F1 = np.array([gu.get_steering_vec_ULA(ang, n_ele=p['Nt_h']) for ang in beam_ang
 
 #%% Generate dataset
 
-dataset = DeepMIMO.generate_data(parameters)
+dataset_i = DeepMIMO.generate_data(parameters)
+
+dataset_i[0]['location'] = p['tx_pos']
+
+# Subsample dataset
+uniform_subsampling = True
+sampling_div = [2,2] # 2 = half the samples, 3 = a third, etc.. along [x,y]
+n_rows = parameters['user_row_last'] - parameters['user_row_first'] + 1
+n_usr_row = 181 # n_cols = 595 for Boston, 411 for asu campus, = 181 for new_scen
+
+if uniform_subsampling:
+    
+    cols = np.arange(n_usr_row, step=sampling_div[0])
+    rows = np.arange(n_rows, step=sampling_div[1])
+    uniform_idxs = np.array([j + i*n_usr_row for i in rows for j in cols])
+    dataset_u = []
+    n_bs = len(dataset_i)
+    
+    for bs_idx in range(n_bs):
+        dataset_u.append({})
+        for key in dataset_i[bs_idx].keys():
+            dataset_u[bs_idx]['location'] = dataset_i[bs_idx]['location']
+            dataset_u[bs_idx]['user'] = {}
+            for key in dataset_i[bs_idx]['user']:
+                dataset_u[bs_idx]['user'][key] = dataset_i[bs_idx]['user'][key][uniform_idxs]
+    
+dataset = dataset_u if uniform_subsampling else dataset_i
+
+
+# filter some users with errors (problems in the ray tracing)
+def get_idxs_in_xy_box(data_pos, x_min, x_max, y_min, y_max, only_non_nan=False):
+
+    idxs_x = np.where((x_min < data_pos[:, 0]) & (data_pos[:, 0] < x_max))[0]
+    idxs_y = np.where((y_min < data_pos[:, 1]) & (data_pos[:, 1] < y_max))[0]
+    
+    return np.array(list(set(idxs_x).intersection(idxs_y)))
+
+not_idxs = get_idxs_in_xy_box(dataset[0]['user']['location'], x_min=30, x_max=50, y_min=-50, y_max=-30)
 
 grid_idxs_enabled = np.where(dataset[0]['user']['LoS'] != -1)[0]  # enabled UEs
+grid_idxs_enabled = np.array([i for i in grid_idxs_enabled if i not in not_idxs])
+
 n_active_ues = len(grid_idxs_enabled)
 
 rxs = dataset[0]['user']['location'][grid_idxs_enabled]
@@ -146,7 +183,7 @@ for beam_idx in range(rssi_db.n_beams):
         title = f'Beam = {beam_idx} ({beam_dir:.1f}º) | Subband = {subband_idx} ({subband_freq:.3f} GHz)'
         rssi_db.plot_coverage_map(title=title, beam_idx=beam_idx, subband_idx=subband_idx)
         break
-    # break
+    break
 
 #%% Plot Best beam in complete database
 
@@ -385,30 +422,52 @@ print(f'Correlation coeff = {np.corrcoef(x,y)[0,1]:.2f}')
 
 #%% Make Multi-parameter combination experiment
 
-N_rep = 500 # repetitions of each meas
-los = 1
+N_rep = 100 # repetitions of each meas
+los = 0
 np.random.seed(1)
 
-params_base = {'NK': 1 if los else 2,
-               'B': [0],
-               'T': [1],
-               'pos': [0,0,1.5] if los else [22,-26,1.5],
-               }
+# OLD
+# params_base = {'NK': 1 if los else 2,
+#                'B': [0],
+#                'T': [1],
+#                'pos': [0,0,1.5] if los else [22,-26,1.5],
+#                }
+
+# csvs_folder = 'csvs'
+# os.makedirs(csvs_folder, exist_ok=True)
+# csv_path = f"{csvs_folder}/res_N_rep={N_rep}_pos={params_base['pos']}_t={time.time():.0f}.csv" 
+
+# N_VARS = 6 # number of values of each parameter to test below (easier to hardcode)
+# params_variations = {'NK': [i for i in [(2 if los else 3),4,6,8,10,12]],
+                     
+#                      'B': ([[0,19], [0,6,12,19], [0,4,8,12,16,19], 
+#                             [0,3,6,9,12,15,17,19], [0,2,4,6,8,10,12,14,16,19],
+#                             [0,2,3,4,6,8,9,10,12,14,16,19]] if los else
+#                            [[i for i in range(nb)] for nb in [2,4,6,8,10,12]]),
+                        
+#                      'T':  [[i  for i in range(nt)] for nt in [2,4,8,16,32,48]],
+#                      }
+
+# NEW
+params_base = {
+    'NK': 1 if los else 2,
+    'B': [0],
+    'T': [1],
+    'pos': [-0.1, 19.9, 2]if los else [23.9, -10.1, 2],
+    }
 
 csvs_folder = 'csvs'
 os.makedirs(csvs_folder, exist_ok=True)
 csv_path = f"{csvs_folder}/res_N_rep={N_rep}_pos={params_base['pos']}_t={time.time():.0f}.csv" 
 
 N_VARS = 6 # number of values of each parameter to test below (easier to hardcode)
-params_variations = {'NK': [i for i in [(2 if los else 3),4,6,8,10,12]],
-                     
-                     'B': ([[0,19], [0,6,12,19], [0,4,8,12,16,19], 
+params_variations = {'NK': [i for i in ([2, 4, 6, 8, 10, 12] if los else [3,4,6,8,10,12])],
+                      'B': ([[0,19], [0,6,12,19], [0,4,8,12,16,19], 
                             [0,3,6,9,12,15,17,19], [0,2,4,6,8,10,12,14,16,19],
                             [0,2,3,4,6,8,9,10,12,14,16,19]] if los else
-                           [[i for i in range(nb)] for nb in [2,4,6,8,10,12]]),
-                        
-                     'T':  [[i  for i in range(nt)] for nt in [2,4,8,16,32,48]],
-                     }
+                            [[i for i in range(nb)] for nb in [2,4,6,8,10,12]]),
+                      'T':  [[i  for i in range(nt)] for nt in [2,4,6,8,10,12]],
+                      }
 
 params_combos = gu.build_params_combinations(params_base, params_variations, n_vars=N_VARS)
 n_param_combos = len(params_combos)
@@ -450,28 +509,31 @@ for val in [0.8, 0.9, 0.95, 0.99]:
 df.to_csv(csv_path, index=False)
 
 #%% Plot Multi-parameter combos
-
-csv_path = 'csvs/res_N_rep=300_pos=[0, 0, 1.5].csv'
+# old results
+# csv_path = 'csvs/res_N_rep=300_pos=[0, 0, 1.5].csv'
 # csv_path = 'csvs/res_N_rep=300_pos=[22, -26, 1.5].csv'
+
+# new results:
+csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
+# csv_path = 'csvs/res_N_rep=500_pos=[ 23.9 -10.1   2. ]_t=1710119181.csv'
 df = pd.read_csv(csv_path)
 
 plt.figure(dpi=200, figsize=[6, 4])
-# var_names = ['B', 'T', 'NK', 'all'] # choose the order of plotting
 var_names = ['NK', 'B', 'T', 'all']
 
-var_plot_params = {'B': {'marker': 'D', 'markersize': 5, 'label': '#$\mathcal{B}$', 'color': 'tab:blue'},
-                   'T': {'marker': '^', 'markersize': 7, 'label': '#$\mathcal{T}$', 'color': 'tab:orange'},
-                   'NK': {'marker': 's', 'markersize': 5, 'label': '#$\mathcal{K}$', 'color': 'tab:green'},
+var_plot_params = {'B': {'marker': 'D', 'markersize': 5, 'label': 'Number of Subbands $|\mathcal{B}|$', 'color': 'tab:blue'},
+                   'T': {'marker': '^', 'markersize': 7, 'label': 'Number of Times $|\mathcal{T}|$', 'color': 'tab:orange'},
+                   'NK': {'marker': 's', 'markersize': 5, 'label': 'Number of Beams $|\mathcal{K}|$', 'color': 'tab:green'},
                    'all': {'marker': '*', 'markersize': 9, 'label': 'All', 'color': 'tab:red'},
                    }
 
 def_plot_params = {'markerfacecolor': 'w'}
 
 # text parameters
-x_off = 0.05
-y_off = 0.1 if los else 0.5
+x_off = -0.05
+y_off = 0.1 if los else 0.7
 txt_labels = {'B':'B', 'T':'T', 'NK': 'K'}
-txt_flip_y = {'B': [0,0,0,0,0,0] if los else [0,0,0,0,0,0,0],
+txt_flip_y = {'B': [1,0,0,0,0,0] if los else [0,0,0,0,0,0,0],
               'T': [0,1,0,0,0,0] if los else [0,0,0,0,0,0,0],
               'NK': [0,0,0,0,0,0] if los else [0,1,0,0,0,0,0],
               'all': [0,0,0,0,0,0,0] if los else [0,1,0,0,0,0,0]}
@@ -490,10 +552,21 @@ for var_name in var_names:
     if var_name != var_names[-1]:
         for i, y_val in enumerate(data[1:]):
             if type(params_variations[var_name][i]) in [list]:
-                text = len(params_variations[var_name][i])
+                text_i = len(params_variations[var_name][i])
             else:
-                text = params_variations[var_name][i]
-            text = f'{txt_labels[var_name]}={text}'
+                text_i = params_variations[var_name][i]
+            
+            # text = f'{txt_labels[var_name]}={text_i}'
+            if txt_labels[var_name] == 'K':
+                lab_text = '|$\mathcal{K}|$='
+            elif txt_labels[var_name] == 'B':
+                 lab_text = '|$\mathcal{B}|$='
+            elif txt_labels[var_name] == 'T':
+                lab_text = '|$\mathcal{T}|$='
+            else:
+                print('smth wrong')#lab_text = f'{txt_labels[var_name]}={text}'
+            text = lab_text + f'{text_i}'
+            
             va = 'bottom' if not txt_flip_y[var_name][i] else 'top'
             y = y_val + y_off if not txt_flip_y[var_name][i] else y_val - 2*y_off
             plt.text(i+1+x_off, y, text, fontsize=8, verticalalignment=va)
@@ -509,7 +582,9 @@ for var_name in var_names:
             text = f"({','.join(txt_ele)})"
             
             if i == 0:
-                text = '(K,B,T)\n' + text
+                # text = '(K,B,T)\n' + text
+                text = '$(|\mathcal{K}|,|\mathcal{B}|,|\mathcal{T}|)$\n' + text
+                
             
             va = 'bottom' if not txt_flip_y[var_name][i] else 'top'
             y = data[i] + 2*y_off if not txt_flip_y[var_name][i] else data[i] - 2*y_off
@@ -517,10 +592,11 @@ for var_name in var_names:
             plt.text(i, y, text, fontsize=8, 
                      horizontalalignment='center', verticalalignment=va)
                 
-    plt.xlim([-0.3, N_VARS + 0.56])
-    plt.ylim([-0., df['avg'][0]*1.05 if skip_joint_text else df['avg'][0]*1.12])
+    plt.xlim([-0.5, N_VARS + 0.56])
+    plt.ylim([-0., df['avg'][0]*1.08 if skip_joint_text else df['avg'][0]*1.15])
     
-plt.ylabel(f"Position error for user in {'' if los else 'N'}LoS (m)")
+plt.ylabel(f"Mean position error for a {'' if los else 'N'}LoS user (m)")
 plt.xlabel('Overhead level')
-plt.legend(loc='upper right', ncols=10, columnspacing=0.8)
+plt.legend(loc='upper right', ncols=1, columnspacing=0.8)
 plt.grid()
+plt.savefig("4.svg")

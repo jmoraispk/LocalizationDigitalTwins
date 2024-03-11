@@ -138,7 +138,7 @@ class RSSI_Database():
     def plot_coverage_map(self, matrix=None, lims=True, tx_pos=True, tx_ori=True, title='',
                           beam_idx=0, subband_idx=0, rx_pos=None, rx_labels=None, legend=False, 
                           cm_label='', scat_sz=6, convert_to_2D=None, scatter=None, dpi=200,
-                          tight=False):
+                          tight=True):
         if self.dbm is None and matrix is None:
             raise Exception('No available grid to plot')
         
