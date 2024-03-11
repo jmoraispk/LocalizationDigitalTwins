@@ -56,8 +56,14 @@ p = { # Parameters for scene generation (ray tracing simulation)
      'db_save_folder': 'databases',
      
      }
-#%%
-# Load the default parameters
+
+# LOS_POS = [0,0,1.5]
+# NLOS_POS = [22, -26, 1.5]
+
+LOS_POS = [-0.1, 19.9, 2]
+NLOS_POS = [23.9, -10.1, 2]
+
+#%% Load the default parameters
 parameters = DeepMIMO.default_params()
 
 parameters['scenario'] = p['scenario']
@@ -253,7 +259,7 @@ B = [0] #[0, 10, 19]
 T = [0]# for i in range(12)]
 
 m3 = RSSI_Measurement_Generator(db=rssi_db, std_def=2)
-meas3 = m3.gen_real_beam_meas(NK, B, T, pos=[0,0,1.5])
+meas3 = m3.gen_real_beam_meas(NK, B, T, pos=LOS_POS)
 prob_grid3 = m3.comp_loc_prob(plot=True)
 pos_estimate = m3.estimate_loc(plot=True)
 pos_error = m3.comp_pos_error(verbose=True)
@@ -262,12 +268,11 @@ m3.plot_final_result()
 
 #%% Single parameter combination with multiple repetitions
 N_rep = 1000
-params = {'NK': 4,
-          'B': [0], # [0], [0,19], [0,10,19], [0,6,13,19], 
+params = {'NK': 8,
+          'B': [0,3,6,9,12,15,17,19], # [0], [0,19], [0,10,19], [0,6,13,19], 
                                  # [0,4,8,12,16,19], [0,3,6,9,12,15,17,19]
-          'T': [i for i in range(10)], # 1,4,8,12
-            # 'pos': [0,0,1.5], 
-            'pos': [22,-26,1.5],
+          'T': [i for i in range(8)], # 1,4,8,12
+          'pos': NLOS_POS, 
           }
 
 pos_errors = np.zeros(N_rep)
@@ -288,8 +293,8 @@ for val in [0.99, 0.9, 0.8]:
 #%% Test NK, NB, and NT
 
 N_rep = 100 # repetitions of each meas
-p_idx = rssi_db.get_closest_pos_idx([0,0,1.5])
-# p_idx = rssi_db.get_closest_pos_idx([22,-26,1.5])
+p_idx = rssi_db.get_closest_pos_idx(LOS_POS)
+# p_idx = rssi_db.get_closest_pos_idx(NLOS_POS)
 
 # N = 25
 # # Beam Variation
@@ -430,7 +435,7 @@ np.random.seed(1)
 # params_base = {'NK': 1 if los else 2,
 #                'B': [0],
 #                'T': [1],
-#                'pos': [0,0,1.5] if los else [22,-26,1.5],
+#                'pos': LOS_POS if los else NLOS_POS,
 #                }
 
 # csvs_folder = 'csvs'
@@ -514,8 +519,8 @@ df.to_csv(csv_path, index=False)
 # csv_path = 'csvs/res_N_rep=300_pos=[22, -26, 1.5].csv'
 
 # new results:
-csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
-# csv_path = 'csvs/res_N_rep=500_pos=[ 23.9 -10.1   2. ]_t=1710119181.csv'
+# csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
+csv_path = 'csvs/res_N_rep=500_pos=[ 23.9 -10.1   2. ]_t=1710119181.csv'
 df = pd.read_csv(csv_path)
 
 plt.figure(dpi=200, figsize=[6, 4])
@@ -531,12 +536,12 @@ def_plot_params = {'markerfacecolor': 'w'}
 
 # text parameters
 x_off = -0.05
-y_off = 0.1 if los else 0.7
+y_off = 0.2 if los else 0.7
 txt_labels = {'B':'B', 'T':'T', 'NK': 'K'}
-txt_flip_y = {'B': [1,0,0,0,0,0] if los else [0,0,0,0,0,0,0],
-              'T': [0,1,0,0,0,0] if los else [0,0,0,0,0,0,0],
-              'NK': [0,0,0,0,0,0] if los else [0,1,0,0,0,0,0],
-              'all': [0,0,0,0,0,0,0] if los else [0,1,0,0,0,0,0]}
+txt_flip_y = {'B': [0,1,0,0,0,0] if los else [0,0,0,1,1,1,1],
+              'T': [0,0,0,0,0,0] if los else [1,1,1,0,0,0,0],
+              'NK': [0,0,0,0,0,0] if los else [0,0,0,0,0,0,0],
+              'all': [0,0,0,0,0,0,0] if los else [0,0,0,0,0,0,0]}
 skip_joint_text = False
 
 for var_name in var_names:
@@ -549,15 +554,15 @@ for var_name in var_names:
     plt.fill_between(np.arange(N_VARS+1), data - conf_int, data + conf_int, alpha=0.2,
                      facecolor=var_plot_params[var_name]['color'])
     
-    if var_name != var_names[-1]:
-        for i, y_val in enumerate(data[1:]):
+    if var_name != var_names[-1]:   
+        for i, y_val in enumerate(data[1:]):    
             if type(params_variations[var_name][i]) in [list]:
                 text_i = len(params_variations[var_name][i])
             else:
                 text_i = params_variations[var_name][i]
             
             # text = f'{txt_labels[var_name]}={text_i}'
-            if txt_labels[var_name] == 'K':
+            if txt_labels[var_name] == 'K': 
                 lab_text = '|$\mathcal{K}|$='
             elif txt_labels[var_name] == 'B':
                  lab_text = '|$\mathcal{B}|$='
@@ -572,7 +577,7 @@ for var_name in var_names:
             plt.text(i+1+x_off, y, text, fontsize=8, verticalalignment=va)
     
     if var_name == var_names[-1] and not skip_joint_text:
-        for i in range(7 if los else 5):
+        for i in range(7 if los else 4):
             txt_ele = []
             for var_n in var_names[:-1]:
                 val = params_base[var_n] if i == 0 else params_variations[var_n][i-1]
@@ -580,7 +585,7 @@ for var_name in var_names:
                 txt_ele.append(str(text))
                 
             text = f"({','.join(txt_ele)})"
-            
+                
             if i == 0:
                 # text = '(K,B,T)\n' + text
                 text = '$(|\mathcal{K}|,|\mathcal{B}|,|\mathcal{T}|)$\n' + text
@@ -597,6 +602,6 @@ for var_name in var_names:
     
 plt.ylabel(f"Mean position error for a {'' if los else 'N'}LoS user (m)")
 plt.xlabel('Overhead level')
-plt.legend(loc='upper right', ncols=1, columnspacing=0.8)
+plt.legend(ncols=1, columnspacing=0.8)
 plt.grid()
 plt.savefig("4.svg")
