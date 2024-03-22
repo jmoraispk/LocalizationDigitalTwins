@@ -18,7 +18,9 @@ Note: the `spyder-kernels=2.4` part is only necessary if you plan on using spyde
 
 ## FAST Reproducibility video
 
-![[Video](https://www.youtube.com/watch?v=DqulEtmGTDc)](/cover_imgs/fast_video_cover.png)
+[![Video](/cover_imgs/fast_video_cover.png)](https://www.youtube.com/watch?v=DqulEtmGTDc)
+
+[![Video](https://img.youtube.com/vi/DqulEtmGTDc/0.jpg)](https://www.youtube.com/watch?v=DqulEtmGTDc)
 
 ## Detailed Reproducibility video
 
