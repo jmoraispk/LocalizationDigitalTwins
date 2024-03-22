@@ -83,7 +83,7 @@ dataset_i[0]['location'] = p['tx_pos']
 
 # Subsample dataset
 uniform_subsampling = True
-sampling_div = [1,1] # 2 = half the samples, 3 = a third, etc.. along [x,y]
+sampling_div = [2,2] # 2 = half the samples, 3 = a third, etc.. along [x,y]
 n_rows = parameters['user_row_last'] - parameters['user_row_first'] + 1
 n_usr_row = 181 # n_cols = 595 for Boston, 411 for asu campus, = 181 for new_scen
 
@@ -249,7 +249,7 @@ m3.plot_final_result()
 
 #%% Position accuracy for all positions in 2D grid
 
-N_rep = 1000 # repetitions of each meas
+N_rep = 10 # repetitions of each meas
 params_combo = [
     {'NK': 1,
      'B': [0],
@@ -280,8 +280,8 @@ title = f"Position Error [DB res = {p['cell_size']} m | N_rep = {N_rep}]"
 rssi_db.plot_coverage_map(matrix=avg_pos_err, #title=title, 
                           cm_label='Absolute Position Error [m]', 
                           scatter=True, convert_to_2D=False, lims=False, scat_sz=6.8,
-                          rx_pos=[[0,0,0], [23,-25,0]], rx_labels=['Pos1 (LoS)', 'Pos2 (NLoS)'],
-                          legend=True, dpi=600)
+                          rx_pos=[LOS_POS, NLOS_POS], rx_labels=['Pos1 (LoS)', 'Pos2 (NLoS)'],
+                          legend=True, dpi=300)
 
 #%% Plot Pos Error vs received power (which is a function of LoS/NLoS and distance)
 
@@ -307,7 +307,7 @@ params_base = {
     'NK': 1 if los else 2,
     'B': [0],
     'T': [1],
-    'pos': [-0.1, 19.9, 2] if los else [23.9, -10.1, 2],
+    'pos': LOS_POS if los else NLOS_POS,
     }
 
 csvs_folder = 'csvs'
@@ -365,7 +365,7 @@ df.to_csv(csv_path, index=False)
 #%% Plot Multi-parameter combos
 
 # csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
-csv_path = 'csvs/res_N_rep=500_pos=[ 23.9 -10.1   2. ]_t=1710119181.csv'
+# csv_path = 'csvs/res_N_rep=500_pos=[ 23.9 -10.1   2. ]_t=1710119181.csv'
 df = pd.read_csv(csv_path)
 
 plt.figure(dpi=200, figsize=[6, 4])
