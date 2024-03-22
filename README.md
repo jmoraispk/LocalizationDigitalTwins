@@ -8,7 +8,7 @@
 3. Type the following commands:
 - `mamba create -n locDT_env python`
 - `mamba activate locDT_env`
-- `mamba install numpy tqdm matplotlib scipy spyder-kernels=2.4`
+- `mamba install numpy pandas tqdm matplotlib scipy spyder-kernels=2.4`
 - `pip install DeepMIMO`
 
 Note: the `spyder-kernels=2.4` part is only necessary if you plan on using spyder. If you do, install it in: [Spyder](https://www.spyder-ide.org/).
