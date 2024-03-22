@@ -38,7 +38,6 @@ p = { # Parameters for scene generation (ray tracing simulation)
      
      'db_n_decimals': 1,    # Number of decimal places for the DB (values in dBm)
      
-     'grid_dims': [180, 120, 0],  # 3D user grid
      'cell_size': 2, # [m]
      
      # Specific: DeepMIMO
@@ -55,7 +54,7 @@ NLOS_POS = [23.9, -10.1, 2]
 parameters = DeepMIMO.default_params()
 
 parameters['scenario'] = p['scenario']
-parameters['user_row_last'] = 141 # 61
+parameters['user_row_last'] = 141
 parameters['bs_antenna']['shape'] = np.array([1, p['Nt_h'], 1])
 parameters['bs_antenna']['rotation'] =  np.array(p['tx_ori'])
 parameters['ue_antenna']['shape'] = np.array([1, 1, 1])
@@ -83,7 +82,9 @@ dataset_i[0]['location'] = p['tx_pos']
 
 # Subsample dataset
 uniform_subsampling = True
-sampling_div = [2,2] # 2 = half the samples, 3 = a third, etc.. along [x,y]
+
+# 2 = half the samples, 3 = a third, etc.. along [x,y]
+sampling_div = [p['cell_size'],p['cell_size']] 
 n_rows = parameters['user_row_last'] - parameters['user_row_first'] + 1
 n_usr_row = 181 # n_cols = 595 for Boston, 411 for asu campus, = 181 for new_scen
 
@@ -176,7 +177,7 @@ for beam_idx in range(rssi_db.n_beams):
         subband_freq = rssi_db.get_freq_of_subband(subband_idx) / 1e9 # [GHz]
         title = f'Beam = {beam_idx} ({beam_dir:.1f}º) | Subband = {subband_idx} ({subband_freq:.3f} GHz)'
         rssi_db.plot_coverage_map(title=title, beam_idx=beam_idx, subband_idx=subband_idx)
-        break
+        # break
     break
 
 #%% Plot Best beam in complete database
@@ -300,7 +301,7 @@ print(f'Correlation coeff = {np.corrcoef(x,y)[0,1]:.2f}')
 #%% Make Multi-parameter combination experiment
 
 N_rep = 100 # repetitions of each meas
-los = 0
+los = 1
 np.random.seed(1)
 
 params_base = {
@@ -364,16 +365,16 @@ df.to_csv(csv_path, index=False)
 
 #%% Plot Multi-parameter combos
 
-# csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
+csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
 # csv_path = 'csvs/res_N_rep=500_pos=[ 23.9 -10.1   2. ]_t=1710119181.csv'
 df = pd.read_csv(csv_path)
 
 plt.figure(dpi=200, figsize=[6, 4])
 var_names = ['NK', 'B', 'T', 'all']
 
-var_plot_params = {'B': {'marker': 'D', 'markersize': 5, 'label': 'Number of Subbands $|\mathcal{B}|$', 'color': 'tab:blue'},
-                   'T': {'marker': '^', 'markersize': 7, 'label': 'Number of Times $|\mathcal{T}|$', 'color': 'tab:orange'},
-                   'NK': {'marker': 's', 'markersize': 5, 'label': 'Number of Beams $|\mathcal{K}|$', 'color': 'tab:green'},
+var_plot_params = {'B': {'marker': 'D', 'markersize': 5, 'label': r'Number of Subbands $|\mathcal{B}|$', 'color': 'tab:blue'},
+                   'T': {'marker': '^', 'markersize': 7, 'label': r'Number of Times $|\mathcal{T}|$', 'color': 'tab:orange'},
+                   'NK': {'marker': 's', 'markersize': 5, 'label': r'Number of Beams $|\mathcal{K}|$', 'color': 'tab:green'},
                    'all': {'marker': '*', 'markersize': 9, 'label': 'All', 'color': 'tab:red'},
                    }
 
@@ -408,11 +409,11 @@ for var_name in var_names:
             
             # text = f'{txt_labels[var_name]}={text_i}'
             if txt_labels[var_name] == 'K': 
-                lab_text = '|$\mathcal{K}|$='
+                lab_text = r'|$\mathcal{K}|$='
             elif txt_labels[var_name] == 'B':
-                 lab_text = '|$\mathcal{B}|$='
+                 lab_text = r'|$\mathcal{B}|$='
             elif txt_labels[var_name] == 'T':
-                lab_text = '|$\mathcal{T}|$='
+                lab_text = r'|$\mathcal{T}|$='
             else:
                 print('smth wrong')#lab_text = f'{txt_labels[var_name]}={text}'
             text = lab_text + f'{text_i}'
@@ -433,7 +434,7 @@ for var_name in var_names:
                 
             if i == 0:
                 # text = '(K,B,T)\n' + text
-                text = '$(|\mathcal{K}|,|\mathcal{B}|,|\mathcal{T}|)$\n' + text
+                text = r'$(|\mathcal{K}|,|\mathcal{B}|,|\mathcal{T}|)$' + '\n' + text
                 
             
             va = 'bottom' if not txt_flip_y[var_name][i] else 'top'
