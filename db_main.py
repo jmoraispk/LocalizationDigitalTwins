@@ -27,10 +27,8 @@ import DeepMIMO
 
 p = { # Parameters for scene generation (ray tracing simulation)
      'freq': 3.5e9,
-      # 'tx_pos': [-33,11,32], # just informational, the position comes from the deepmimo scenario
-      # 'tx_ori': [0,0,-18.43],
-      'tx_pos': np.array([-42, 27, 32]), # just informational, the position comes from the deepmimo scenario
-      'tx_ori': [0,0,-45],
+     'tx_pos': np.array([-42., 27., 32.]), # just informational, the position comes from the deepmimo scenario
+     'tx_ori': [0,0,-45],
      
       # Parameters for database generation (from the ray tracing simulation)
      'bandwidth': 100e6,     # [Hz]
@@ -50,15 +48,11 @@ p = { # Parameters for scene generation (ray tracing simulation)
      'cell_size': 2, # [m]
      
      # Specific: DeepMIMO
-     # 'scenario': 'simple_street_canyon_test_rays=0p25_res=2m_3ghz',
       'scenario': 'new_scen',
-     'scenarios_folder': 'deepmimo_scenarios', #'/media/joao/2ndStorage/DeepMIMO/Data',
+     'scenarios_folder': 'deepmimo_scenarios',
      'db_save_folder': 'databases',
      
      }
-
-# LOS_POS = [0,0,1.5]
-# NLOS_POS = [22, -26, 1.5]
 
 LOS_POS = [-0.1, 19.9, 2]
 NLOS_POS = [23.9, -10.1, 2]
@@ -95,7 +89,7 @@ dataset_i[0]['location'] = p['tx_pos']
 
 # Subsample dataset
 uniform_subsampling = True
-sampling_div = [2,2] # 2 = half the samples, 3 = a third, etc.. along [x,y]
+sampling_div = [1,1] # 2 = half the samples, 3 = a third, etc.. along [x,y]
 n_rows = parameters['user_row_last'] - parameters['user_row_first'] + 1
 n_usr_row = 181 # n_cols = 595 for Boston, 411 for asu campus, = 181 for new_scen
 
@@ -195,16 +189,7 @@ for beam_idx in range(rssi_db.n_beams):
 
 rssi_db.plot_best_beam(subband_idx=0)
 
-#%% Plot probability functions in 2D
-msr = -30
-std = 3 # assumed STD != REAL WORLD STD!
-
-for msr in np.arange(-140,-30+1)[::-1]: # probabilities from measurements [-30 to -140] dB
-# for std in np.arange(1,10+1): # probabilities from increasing standard deviations
-    prob_grid = rssi_db.compute_prob_grid(msr, std, beam_idx=11, subband_idx=0)
-    rssi_db.plot_prob_grid(prob_grid, title=f"Measurement = {msr} dBm | Assumed $\sigma = {std}$")
-
-#%% Generate Measurements and plot 1000 of them in time
+#%% (testing) Generate Measurements and plot 1000 of them in time
 
 n_samp = 10000
 m_gen = RSSI_Measurement_Generator(db=rssi_db, std_def=2)
@@ -213,7 +198,7 @@ K = [3]
 B = [3]
 T = [i for i in range(n_samp)]
 
-meas_list = m_gen.gen_measurement(K, B, T, pos=[0,0,0])
+meas_list = m_gen.gen_measurement(K, B, T, pos=LOS_POS)
 
 x_range = np.arange(n_samp)
 m_vals = [m.rssi for m in meas_list]
@@ -234,11 +219,7 @@ ax[1].set_xlabel('RSSI value [dBm]')
 ax[1].set_ylabel('Count')
 ax[1].legend(loc='upper right')
 
-#%% Plot best beam for each position in each subband
-
-rssi_db.plot_best_beam(subband_idx='all')
-
-#%% [Predetermined Measurements] Plot and Intersect probability grids for different beams/bands/times
+#%% (testing) [Predetermined Measurements] Plot and Intersect probability grids for different beams/bands/times
 
 K = [12]
 B = [0] #[0, 10, 19]
@@ -246,13 +227,13 @@ T = [i for i in range(5)]
 
 m_gen2 = RSSI_Measurement_Generator(db=rssi_db, std_def=1)
 
-m_gen2.gen_measurement(K, B, T, pos=[0,0,0])
+m_gen2.gen_measurement(K, B, T, pos=LOS_POS)
 prob_grid = m_gen2.comp_loc_prob(plot=True)
 pos_estimate = m_gen2.estimate_loc(plot=True)
 pos_error = m_gen2.comp_pos_error()
 m_gen2.plot_final_result()
 
-#%% [Real Measurements] 
+#%% (testing) [Real Measurements] 
 
 NK = 3 # these are ignored in gen_real_beam_meas()
 B = [0] #[0, 10, 19]
@@ -265,108 +246,6 @@ pos_estimate = m3.estimate_loc(plot=True)
 pos_error = m3.comp_pos_error(verbose=True)
 
 m3.plot_final_result()
-
-#%% Single parameter combination with multiple repetitions
-N_rep = 1000
-params = {'NK': 8,
-          'B': [0,3,6,9,12,15,17,19], # [0], [0,19], [0,10,19], [0,6,13,19], 
-                                 # [0,4,8,12,16,19], [0,3,6,9,12,15,17,19]
-          'T': [i for i in range(8)], # 1,4,8,12
-          'pos': NLOS_POS, 
-          }
-
-pos_errors = np.zeros(N_rep)
-for rep_idx in tqdm(range(N_rep), desc='Repeating experiment'):
-    pos_errors[rep_idx] = gu.make_experiment(params, rssi_db, std_def=2)
-
-avg_pos_err = np.mean(pos_errors)
-avg_pos_std = np.std(pos_errors)
-
-print(f'avg_pos_err = {avg_pos_err:.3f}; avg_pos_std = {avg_pos_std:.3f}')
-
-sorted_errors = np.sort(pos_errors)
-for val in [0.99, 0.9, 0.8]:
-    cum_val = sorted_errors[int(len(sorted_errors) * val)]
-    print(f'Cumulative value for confidence {val*100:.0f}% = {cum_val:.2f}')
-    
-
-#%% Test NK, NB, and NT
-
-N_rep = 100 # repetitions of each meas
-p_idx = rssi_db.get_closest_pos_idx(LOS_POS)
-# p_idx = rssi_db.get_closest_pos_idx(NLOS_POS)
-
-# N = 25
-# # Beam Variation
-# params_combo = [
-#     {'NK': nk,
-#       'B': [0],
-#       'T': [i+1 for i in range(10)],
-#       'pos': rssi_db.rx_pos[p_idx],
-    
-#     } for nk in range(1,N+1)]
-
-# TODO:
-    # (future) averaging of cell positions to get any position that is not in the DB
-    # number of cells to consider for clustering = accumulated probability = 80%
-    
-
-N = 100
-# # NT variation
-params_combo = [
-    {'NK': 2,
-      'B': [0],
-      'T': [i+1 for i in range(nt)],
-      'pos': rssi_db.rx_pos[p_idx],
-    
-    } for nt in range(1,N+1)]
-
-
-n_param_combos = len(params_combo)
-
-base_results_shape = [N_rep, n_param_combos]
-pos_errors = np.zeros(base_results_shape)
-
-
-t = time.time()
-for rep_idx in tqdm(range(N_rep), desc='Repeating experiment'):
-    for combo_idx in range(n_param_combos):
-        pos_errors[rep_idx, combo_idx] = gu.make_experiment(params_combo[combo_idx], 
-                                                            rssi_db, std_def=2)
-
-print(f'\nTotal time consumed = {time.time() - t:.2f}s')
-
-
-avg_pos_err = np.mean(pos_errors, axis=0)
-avg_pos_std = np.std(pos_errors, axis=0)
-
-confidence = 0.90
-z_score = {0.70: 1.040, 0.75: 1.15, 0.80: 1.28, 0.85: 1.44, 
-           0.90: 1.645, 0.95: 1.96, 0.98: 2.33, 0.99: 2.58}[confidence]
-y_err = z_score * avg_pos_std / np.sqrt(N_rep)
-
-x = np.arange(1,N+1)
-y = avg_pos_err
-
-plt.figure(dpi=200)
-plt.plot(x, y)
-plt.fill_between(x, y - y_err, y + y_err, alpha=0.2)
-plt.ylabel('Position Error [m]')
-plt.xlabel('Number of Samples in Time')
-# plt.xlabel('Number of Beams Reported')
-plt.title(f"Position Error vs Time Samples (NT) \n"
-            f"DB resolution = {p['cell_size']} m | N_rep = {N_rep}")
-# plt.title(f"Position Error vs Number of Beams (NK) \n"
-#           f"DB resolution = {p['cell_size']} m | N_rep = {N_rep} | NT = {params_combo[-1]['T'][-1]}")
-plt.grid()
-
-#%% Minimum theoretical error
-closest_cell = rssi_db.rx_pos[rssi_db.get_closest_pos_idx(rssi_db.rx_pos[p_idx])]
-
-min_theoretic_err = np.linalg.norm(rssi_db.rx_pos[p_idx] - closest_cell)
-
-print(f'closest_cell = {closest_cell}')
-print(f'min_theoretic_err = {min_theoretic_err:.3f}')
 
 #%% Position accuracy for all positions in 2D grid
 
@@ -431,34 +310,11 @@ N_rep = 100 # repetitions of each meas
 los = 0
 np.random.seed(1)
 
-# OLD
-# params_base = {'NK': 1 if los else 2,
-#                'B': [0],
-#                'T': [1],
-#                'pos': LOS_POS if los else NLOS_POS,
-#                }
-
-# csvs_folder = 'csvs'
-# os.makedirs(csvs_folder, exist_ok=True)
-# csv_path = f"{csvs_folder}/res_N_rep={N_rep}_pos={params_base['pos']}_t={time.time():.0f}.csv" 
-
-# N_VARS = 6 # number of values of each parameter to test below (easier to hardcode)
-# params_variations = {'NK': [i for i in [(2 if los else 3),4,6,8,10,12]],
-                     
-#                      'B': ([[0,19], [0,6,12,19], [0,4,8,12,16,19], 
-#                             [0,3,6,9,12,15,17,19], [0,2,4,6,8,10,12,14,16,19],
-#                             [0,2,3,4,6,8,9,10,12,14,16,19]] if los else
-#                            [[i for i in range(nb)] for nb in [2,4,6,8,10,12]]),
-                        
-#                      'T':  [[i  for i in range(nt)] for nt in [2,4,8,16,32,48]],
-#                      }
-
-# NEW
 params_base = {
     'NK': 1 if los else 2,
     'B': [0],
     'T': [1],
-    'pos': [-0.1, 19.9, 2]if los else [23.9, -10.1, 2],
+    'pos': [-0.1, 19.9, 2] if los else [23.9, -10.1, 2],
     }
 
 csvs_folder = 'csvs'
@@ -514,9 +370,6 @@ for val in [0.8, 0.9, 0.95, 0.99]:
 df.to_csv(csv_path, index=False)
 
 #%% Plot Multi-parameter combos
-# old results
-# csv_path = 'csvs/res_N_rep=300_pos=[0, 0, 1.5].csv'
-# csv_path = 'csvs/res_N_rep=300_pos=[22, -26, 1.5].csv'
 
 # new results:
 # csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
@@ -604,4 +457,4 @@ plt.ylabel(f"Mean position error for a {'' if los else 'N'}LoS user (m)")
 plt.xlabel('Overhead level')
 plt.legend(ncols=1, columnspacing=0.8)
 plt.grid()
-plt.savefig("4.svg")
+# plt.savefig("4.svg")
