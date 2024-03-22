@@ -20,9 +20,6 @@ Note: the `spyder-kernels=2.4` part is only necessary if you plan on using spyde
 
 [![Video](/cover_imgs/fast_video_cover.png)](https://www.youtube.com/watch?v=DqulEtmGTDc)
 
-<> Here's another way, without using cover imgs:
-<> [![Video](https://img.youtube.com/vi/DqulEtmGTDc/0.jpg)](https://www.youtube.com/watch?v=DqulEtmGTDc)
-
 ## Detailed Reproducibility video
 
 [![Video](/cover_imgs/detailed_video_cover.png)](https://youtu.be/pgFVx6w5pGw)
