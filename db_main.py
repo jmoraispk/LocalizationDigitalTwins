@@ -21,11 +21,11 @@ import DeepMIMO
 
 p = { # Parameters for scene generation (ray tracing simulation)
      'freq': 3.5e9,
-     'tx_pos': np.array([-42., 27., 32.]), # just informational, the position comes from the deepmimo scenario
+     'tx_pos': np.array([-42., 27., 32.]),
      'tx_ori': [0,0,-45],
      
       # Parameters for database generation (from the ray tracing simulation)
-     'bandwidth': 100e6,     # [Hz]
+     'bandwidth': 100e6,    # [Hz]
      'subband_size': 5e6,   # [Hz]
      'n_subbands': 20,      # = int(bandwith / subband_size)
      
