@@ -1,5 +1,7 @@
-# Localization-DT
- Localization in Digital Twin Networks (description under construction)
+# Fingerprinting Localization with Digital Twins
+This is the official repository of the paper: [Localization in Digital Twin MIMO Networks: A Case for Massive Fingerprinting](https://arxiv.org/abs/2403.09614)
+
+In this repository, you will find the simulation code used to generate all results and instructions to run this code. 
 
 ## Environment Setup
 
@@ -14,8 +16,12 @@
 Note: the `spyder-kernels=2.4` part is only necessary if you plan on using spyder. If you do, install it in: [Spyder](https://www.spyder-ide.org/).
 
 
-## reproducibility video
+## FAST Reproducibility video
 
-[Video](https://youtu.be/abHSQB5BlX4)
+![[Video](https://www.youtube.com/watch?v=DqulEtmGTDc)](/cover_imgs/fast_video_cover.png)
 
-![img](/video_cover.png)
+## Detailed Reproducibility video
+
+<>[Video](https://youtu.be/abHSQB5BlX4)
+
+<>![img](/video_cover.png)
