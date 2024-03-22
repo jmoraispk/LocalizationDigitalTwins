@@ -7,6 +7,7 @@
 2. Open the miniforge prompt (on Windows) or the terminal (on Linux or MacOS)
 3. Type the following commands:
 - `mamba create -n locDT_env python`
+- `mamba activate locDT_env`
 - `mamba install numpy tqdm matplotlib scipy spyder-kernels=2.4`
 - `pip install DeepMIMO`
 
