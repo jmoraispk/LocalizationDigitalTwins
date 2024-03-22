@@ -5,14 +5,8 @@ Created on Sun Oct  1 17:01:09 2023
 
 @author: joao
 
-Limitations/possible expansions:
-    - real-world
-    - larger fingerprints (higher DB level: multi-BS, more CSI info, etc.. )
-    - ULA -> UPA
-    - Other: 
-        - 2D -> 3D (including angles) (unnecessary for most use-cases)
-        - parallelization of measurements (compile + parallelize = easy 10Nx, N=cores)
 """
+
 import os
 import time
 import numpy as np
@@ -189,6 +183,12 @@ for beam_idx in range(rssi_db.n_beams):
 
 rssi_db.plot_best_beam(subband_idx=0)
 
+#%% Plot Received Power in Best beam (for band 0)
+
+rssi_db.plot_coverage_map(matrix=np.max(rssi_db.dbm[:,0,:], axis=0), lims=False,
+                          title=f"Received Power in Best Beam [DB res = {p['cell_size']} m]",
+                          cm_label='Received Power in Best Beam [dBm]')
+
 #%% (testing) Generate Measurements and plot 1000 of them in time
 
 n_samp = 10000
@@ -283,13 +283,6 @@ rssi_db.plot_coverage_map(matrix=avg_pos_err, #title=title,
                           rx_pos=[[0,0,0], [23,-25,0]], rx_labels=['Pos1 (LoS)', 'Pos2 (NLoS)'],
                           legend=True, dpi=600)
 
-#%% Plot Received Power in Best beam (for band 0)
-
-title = f"Received Power in Best Beam [DB res = {p['cell_size']} m]"
-rssi_db.plot_coverage_map(matrix=np.max(rssi_db.dbm[:,0,:], axis=0), title=title, lims=False, 
-                          scatter=False, convert_to_2D=True,
-                          cm_label='Received Power in Best Beam [dBm]')
-
 #%% Plot Pos Error vs received power (which is a function of LoS/NLoS and distance)
 
 # for each position, get the received power (db) in best beam in subband 0
@@ -371,7 +364,6 @@ df.to_csv(csv_path, index=False)
 
 #%% Plot Multi-parameter combos
 
-# new results:
 # csv_path = 'csvs/res_N_rep=500_pos=[-0.1 19.9  2. ]_t=1710119053.csv'
 csv_path = 'csvs/res_N_rep=500_pos=[ 23.9 -10.1   2. ]_t=1710119181.csv'
 df = pd.read_csv(csv_path)
